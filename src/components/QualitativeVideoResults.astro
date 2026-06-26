@@ -1,0 +1,301 @@
+---
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+type VideoResult = {
+  id: string;
+  label: string;
+  oursMp4: string;
+  oursWebm?: string;
+  dvisMp4?: string;
+  dvisWebm?: string;
+};
+
+const baseUrl = import.meta.env.BASE_URL;
+const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+const publicRoot = join(process.cwd(), "public", "qualitative-results");
+const oursRoot = join(publicRoot, "ours");
+const dvisRoot = join(publicRoot, "dvispp");
+
+const labels: Record<string, string> = {
+  "183496313-1-192": "Case 1",
+  "52ee3d90": "Case 2",
+  "9c2b22ab": "Case 3",
+  "hb8398qr": "Case 4",
+};
+const caseOrder: Record<string, number> = {
+  "183496313-1-192": 1,
+  "52ee3d90": 2,
+  "9c2b22ab": 3,
+  "hb8398qr": 4,
+};
+const caseStudyIds = new Set(["183496313-1-192"]);
+
+function isVideo(name: string) {
+  return /-h264\.mp4$/i.test(name);
+}
+
+function webmName(name: string) {
+  return name.replace(/-h264\.mp4$/i, ".webm");
+}
+
+function mediaNames(root: string) {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root)
+    .filter(isVideo)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function publicUrl(relativePath: string) {
+  return `${prefix}${relativePath
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/")}`;
+}
+
+function videoStem(name: string) {
+  return name
+    .replace(/-vis-h264\.mp4$/i, "")
+    .replace(/-h264\.mp4$/i, "");
+}
+
+const dvisVideos = mediaNames(dvisRoot);
+const dvisByStem = new Map(dvisVideos.map((name) => [videoStem(name), name]));
+
+const videoResults: VideoResult[] = mediaNames(oursRoot)
+  .map((oursVideo) => {
+    const stem = videoStem(oursVideo);
+    const dvisVideo = dvisByStem.get(stem);
+    const oursWebm = webmName(oursVideo);
+    const dvisWebm = dvisVideo ? webmName(dvisVideo) : undefined;
+
+    return {
+      id: stem,
+      label: labels[stem] ?? stem,
+      oursMp4: publicUrl(`qualitative-results/ours/${oursVideo}`),
+      oursWebm: existsSync(join(oursRoot, oursWebm))
+        ? publicUrl(`qualitative-results/ours/${oursWebm}`)
+        : undefined,
+      dvisMp4: dvisVideo
+        ? publicUrl(`qualitative-results/dvispp/${dvisVideo}`)
+        : undefined,
+      dvisWebm:
+        dvisWebm && existsSync(join(dvisRoot, dvisWebm))
+          ? publicUrl(`qualitative-results/dvispp/${dvisWebm}`)
+          : undefined,
+    };
+  })
+  .sort(
+    (a, b) =>
+      (caseOrder[a.id] ?? Number.MAX_SAFE_INTEGER) -
+      (caseOrder[b.id] ?? Number.MAX_SAFE_INTEGER),
+  );
+
+const caseStudyVideos = videoResults.filter((video) => caseStudyIds.has(video.id));
+const comparisonVideos = videoResults.filter(
+  (video) => video.dvisMp4 && !caseStudyIds.has(video.id),
+);
+const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
+---
+
+{
+  videoResults.length > 0 && (
+    <section class="not-prose full-bleed my-10">
+      <div class="mx-auto max-w-[110rem] px-6">
+        <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 class="m-0 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              Qualitative Video Results
+            </h2>
+            <p class="mt-2 max-w-4xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+              We provide long-video qualitative examples for ORL-VIS. Image
+              sequences are first converted into videos, making temporal
+              consistency and identity recovery easier to inspect. The listed
+              videos are selected from thousand-frame-level challenging scenes,
+              where multiple objects have similar appearances and undergo
+              complex interactions. Such scenarios remain difficult for
+              existing methods, while ORL-VIS shows more stable identity
+              association than the baseline to some extent. We show standard
+              comparisons first and leave the most challenging long-video case
+              as a final case study.
+            </p>
+          </div>
+          <div class="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            {comparisonVideos.length} comparison / {oursOnlyVideos.length} ours-only / {caseStudyVideos.length} case study
+          </div>
+        </div>
+
+        {comparisonVideos.length > 0 && (
+          <div class="mb-8">
+            <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              Method Comparisons
+            </h3>
+            <div class="grid gap-5 xl:grid-cols-2">
+              {comparisonVideos.map((video) => (
+                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <h4 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                      {video.label}
+                    </h4>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                      DVIS++ vs. ORL-VIS
+                    </span>
+                  </div>
+                  <div class="grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        DVIS++
+                      </div>
+                      <video
+                        class="aspect-video w-full rounded bg-black object-contain"
+                        controls
+                        loop
+                        muted
+                        playsinline
+                        preload="auto"
+                      >
+                        {video.dvisWebm && (
+                          <source src={video.dvisWebm} type="video/webm" />
+                        )}
+                        <source src={video.dvisMp4} type="video/mp4" />
+                      </video>
+                    </div>
+                    <div>
+                      <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                        ORL-VIS (Ours)
+                      </div>
+                      <video
+                        class="aspect-video w-full rounded bg-black object-contain"
+                        controls
+                        loop
+                        muted
+                        playsinline
+                        preload="auto"
+                      >
+                        {video.oursWebm && (
+                          <source src={video.oursWebm} type="video/webm" />
+                        )}
+                        <source src={video.oursMp4} type="video/mp4" />
+                      </video>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {oursOnlyVideos.length > 0 && (
+          <div class="mb-8">
+            <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              Ours-Only Results
+            </h3>
+            <div class="grid gap-5 lg:grid-cols-2">
+              {oursOnlyVideos.map((video) => (
+                <article class="rounded-lg border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-900 dark:bg-zinc-900">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <h4 class="m-0 text-base font-semibold text-blue-700 dark:text-blue-300">
+                      {video.label}
+                    </h4>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                      ORL-VIS result
+                    </span>
+                  </div>
+                  <video
+                    class="aspect-video w-full rounded bg-black object-contain"
+                    controls
+                    loop
+                    muted
+                    playsinline
+                    preload="auto"
+                  >
+                    {video.oursWebm && (
+                      <source src={video.oursWebm} type="video/webm" />
+                    )}
+                    <source src={video.oursMp4} type="video/mp4" />
+                  </video>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {caseStudyVideos.length > 0 && (
+          <div>
+            <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              Case Study: Thousand-Frame Interaction Scene
+            </h3>
+            {caseStudyVideos.map((video) => (
+              <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h4 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                      {video.label}
+                    </h4>
+                    <p class="mt-2 max-w-4xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                      This case represents a thousand-frame-scale long-video
+                      scenario with visually similar objects and complex
+                      interactions. Existing methods still struggle to maintain
+                      reliable identities under such conditions. ORL-VIS is not
+                      a complete solution, but it shows more stable association
+                      than the DVIS++ baseline to some extent. Addressing these
+                      cases will likely require stronger long-range memory,
+                      object-centric appearance disambiguation, explicit
+                      interaction reasoning, and uncertainty-aware identity
+                      correction, which we view as an important direction for
+                      future research.
+                    </p>
+                  </div>
+                  <span class="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                    DVIS++ vs. ORL-VIS
+                  </span>
+                </div>
+                <div class="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      DVIS++
+                    </div>
+                    <video
+                      class="aspect-video w-full rounded bg-black object-contain"
+                      controls
+                      loop
+                      muted
+                      playsinline
+                      preload="auto"
+                    >
+                      {video.dvisWebm && (
+                        <source src={video.dvisWebm} type="video/webm" />
+                      )}
+                      <source src={video.dvisMp4} type="video/mp4" />
+                    </video>
+                  </div>
+                  <div>
+                    <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                      ORL-VIS (Ours)
+                    </div>
+                    <video
+                      class="aspect-video w-full rounded bg-black object-contain"
+                      controls
+                      loop
+                      muted
+                      playsinline
+                      preload="auto"
+                    >
+                      {video.oursWebm && (
+                        <source src={video.oursWebm} type="video/webm" />
+                      )}
+                      <source src={video.oursMp4} type="video/mp4" />
+                    </video>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}

@@ -1,0 +1,31 @@
+---
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+interface Props {
+  href: string;
+  label: string;
+}
+
+const { href, label } = Astro.props;
+const baseUrl = import.meta.env.BASE_URL;
+const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+const publicPath = href.startsWith(prefix)
+  ? href.slice(prefix.length)
+  : href.replace(/^\/+/, "");
+const pdfPath = join(process.cwd(), "public", publicPath);
+const hasPdf = existsSync(pdfPath);
+---
+
+{
+  hasPdf && (
+    <div class="not-prose my-8 flex justify-center">
+      <a
+        href={href}
+        class="rounded-full bg-zinc-800 px-5 py-2 text-lg text-white hover:bg-black hover:no-underline dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-50"
+      >
+        {label}
+      </a>
+    </div>
+  )
+}

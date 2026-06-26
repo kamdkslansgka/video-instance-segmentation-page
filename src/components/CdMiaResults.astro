@@ -1,0 +1,249 @@
+---
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+type Frame = {
+  name: string;
+  ours: string;
+  cp?: string;
+};
+
+type Slide = {
+  id: string;
+  label: string;
+  note?: string;
+  frames: Frame[];
+};
+
+const publicRoot = join(process.cwd(), "public", "image", "cd-mia");
+const oursRoot = join(publicRoot, "ours");
+const cpRoot = join(publicRoot, "cp");
+const baseUrl = import.meta.env.BASE_URL;
+const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+
+function isImage(name: string) {
+  return /\.(jpe?g|png|webp|avif)$/i.test(name);
+}
+
+function directoryNames(root: string) {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
+
+function numericDirectoryNames(root: string) {
+  return directoryNames(root)
+    .filter((name) => /^\d+$/.test(name))
+    .sort((a, b) => Number(a) - Number(b));
+}
+
+function imageNames(root: string, relativeGroup: string) {
+  const dir = join(root, relativeGroup);
+  if (!existsSync(dir)) {
+    return [];
+  }
+
+  return readdirSync(dir)
+    .filter(isImage)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function assetUrl(method: "ours" | "cp", relativePath: string) {
+  return encodeURI(`${prefix}image/cd-mia/${method}/${relativePath}`);
+}
+
+function makeSlide(
+  relativeGroup: string,
+  label: string,
+  note?: string,
+): Slide | null {
+  const frames = imageNames(oursRoot, relativeGroup).map((name) => {
+    const relativePath = `${relativeGroup}/${name}`;
+    const cpPath = join(cpRoot, relativePath);
+
+    return {
+      name,
+      ours: assetUrl("ours", relativePath),
+      cp: existsSync(cpPath) ? assetUrl("cp", relativePath) : undefined,
+    };
+  });
+
+  if (frames.length === 0) {
+    return null;
+  }
+
+  return {
+    id: relativeGroup.replaceAll("/", "-"),
+    label,
+    note,
+    frames,
+  };
+}
+
+const normalSlides = numericDirectoryNames(oursRoot)
+  .map((name) => makeSlide(name, `Sample ${name}`))
+  .filter((slide): slide is Slide => Boolean(slide))
+  .filter((slide) => slide.frames.every((frame) => frame.cp));
+
+const failureRoot = join(oursRoot, "错误");
+const failureNotes: Record<number, string> = {
+  1: "Mask completeness issue.",
+  3: "Mask completeness issue.",
+  4: "Object placement and scale issue.",
+  5: "Mask completeness issue.",
+};
+const failureSlides = numericDirectoryNames(failureRoot)
+  .filter((name) => name !== "1" && name !== "3")
+  .map((name, index) => {
+    const displayIndex = index + 1;
+    return makeSlide(
+      `错误/${name}`,
+      `Case ${displayIndex}`,
+      failureNotes[displayIndex],
+    );
+  })
+  .filter((slide): slide is Slide => Boolean(slide));
+---
+
+<section class="not-prose full-bleed my-10">
+  <div class="mx-auto max-w-[110rem] px-6">
+    <div class="mb-4 flex items-end justify-between gap-4">
+      <div>
+        <h2 class="m-0 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          CD-MIA Augmentation Visualization
+        </h2>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+          We compare Copy-Paste with CD-MIA across multiple augmented training
+          sequences. Each panel shows temporally ordered frames from the same
+          sampled sequence. The Copy-Paste baseline uses masks selected by
+          CD-MIA after filtering with connected ratio, central density, and
+          related criteria. <strong>
+            If Copy-Paste randomly selected masks instead, the visual quality
+            would be even worse.
+          </strong>
+        </p>
+      </div>
+      <div class="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+        {normalSlides.length} samples
+      </div>
+    </div>
+
+    <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+      {
+        normalSlides.map((slide) => (
+          <article class="min-w-[min(92vw,72rem)] snap-start rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <h3 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                {slide.label}
+              </h3>
+              <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                {slide.frames.length} frames
+              </span>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Copy-Paste
+                </div>
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
+                  {slide.frames.map((frame) => (
+                    <img
+                      src={frame.cp}
+                      alt={`${slide.label} Copy-Paste frame`}
+                      loading="lazy"
+                      decoding="async"
+                      class="aspect-video w-full rounded border border-zinc-200 object-cover dark:border-zinc-700"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                  CD-MIA
+                </div>
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
+                  {slide.frames.map((frame) => (
+                    <img
+                      src={frame.ours}
+                      alt={`${slide.label} CD-MIA frame`}
+                      loading="lazy"
+                      decoding="async"
+                      class="aspect-video w-full rounded border border-blue-200 object-cover dark:border-blue-900"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+
+    {
+      failureSlides.length > 0 && (
+        <div class="mt-8">
+          <div class="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <h3 class="m-0 text-xl font-bold text-zinc-900 dark:text-zinc-50">
+                Less Effective Cases
+              </h3>
+              <p class="mt-2 max-w-4xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                Online augmentation can generate diverse training samples and
+                expose the model to richer occlusion and reappearance patterns.
+                Inevitably, however, some augmented samples may still introduce
+                unrealistic motion, scale, illumination, or interaction
+                patterns. Object size, mask completeness, and augmentation
+                quality remain important issues for future work, for example by
+                using LLM-based quality assessment to decide whether an
+                augmented sample should be enabled.
+              </p>
+            </div>
+            <div class="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              {failureSlides.length} cases
+            </div>
+          </div>
+
+          <div class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+            {failureSlides.map((slide) => (
+              <article class="min-w-[min(92vw,72rem)] snap-start rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                      {slide.label}
+                    </h4>
+                    {slide.note && (
+                      <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                        {slide.note}
+                      </p>
+                    )}
+                  </div>
+                  <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                    {slide.frames.length} frames
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 md:grid-cols-5">
+                  {slide.frames.map((frame) => (
+                    <img
+                      src={frame.ours}
+                      alt={`${slide.label} less effective CD-MIA frame`}
+                      loading="lazy"
+                      decoding="async"
+                      class="aspect-video w-full rounded border border-zinc-200 object-cover dark:border-zinc-700"
+                    />
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )
+    }
+  </div>
+</section>

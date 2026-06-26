@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Project teaser placeholder</title>
+  <desc id="desc">Temporary project teaser placeholder for Anonymous Video Instance Segmentation</desc>
+  <rect width="1200" height="630" fill="#f4f4f5"/>
+  <rect x="54" y="54" width="1092" height="522" rx="28" fill="#ffffff" stroke="#d4d4d8" stroke-width="2"/>
+  <path d="M126 420 C260 270 350 350 468 230 C585 112 704 275 824 190 C930 114 1026 204 1080 144" fill="none" stroke="#2563eb" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="260" cy="270" r="24" fill="#10b981"/>
+  <circle cx="468" cy="230" r="24" fill="#f59e0b"/>
+  <circle cx="824" cy="190" r="24" fill="#ef4444"/>
+  <text x="96" y="510" fill="#18181b" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700">Project teaser</text>
+  <text x="96" y="560" fill="#52525b" font-family="Arial, Helvetica, sans-serif" font-size="28">Replace public/image/teaser.svg with your main figure.</text>
+</svg>

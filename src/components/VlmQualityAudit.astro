@@ -1,0 +1,135 @@
+---
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+type PairwiseRecord = {
+  pairwise_result: {
+    winner: string;
+    method_a_score: number;
+    method_b_score: number;
+    method_a_accept: boolean;
+    method_b_accept: boolean;
+  };
+};
+
+const baseUrl = import.meta.env.BASE_URL;
+const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+const jsonPath = join(process.cwd(), "public", "data", "vlm_pairwise_scores.jsonl");
+const records: PairwiseRecord[] = existsSync(jsonPath)
+  ? readFileSync(jsonPath, "utf8")
+      .trim()
+      .split(/\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as PairwiseRecord)
+  : [];
+
+function mean(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+const sampleCount = records.length;
+const copyPasteMean = mean(
+  records.map((record) => record.pairwise_result.method_a_score),
+);
+const oursMean = mean(records.map((record) => record.pairwise_result.method_b_score));
+const copyPasteWins = records.filter(
+  (record) => record.pairwise_result.winner === "method_a",
+).length;
+const oursWins = records.filter(
+  (record) => record.pairwise_result.winner === "method_b",
+).length;
+const ties = records.filter((record) => record.pairwise_result.winner === "tie")
+  .length;
+const copyPasteSelected = records.filter(
+  (record) => record.pairwise_result.method_a_accept,
+).length;
+const oursSelected = records.filter(
+  (record) => record.pairwise_result.method_b_accept,
+).length;
+
+const metrics = [
+  {
+    label: "Paired samples",
+    value: sampleCount.toString(),
+    detail: "Copy-Paste vs. CD-MIA",
+  },
+  {
+    label: "Mean score",
+    value: `${oursMean.toFixed(3)} / ${copyPasteMean.toFixed(3)}`,
+    detail: "CD-MIA / Copy-Paste",
+  },
+  {
+    label: "Pairwise wins",
+    value: `${oursWins} / ${copyPasteWins}`,
+    detail: `CD-MIA / Copy-Paste, ${ties} ties`,
+  },
+  {
+    label: "Selected samples",
+    value: `${oursSelected} / ${copyPasteSelected}`,
+    detail: "Scores above the quality threshold",
+  },
+];
+---
+
+<section class="not-prose full-bleed my-10">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <h2 class="m-0 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          GPT-5.4-mini-Based Augmentation Quality Assessment
+        </h2>
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+          We further conduct a VLM-based pairwise audit using GPT-5.4-mini to
+          evaluate augmentation realism and training usefulness. The judge
+          compares the same sampled sequence under naive Copy-Paste and CD-MIA,
+          then reports a quality score, pairwise preference, and whether each
+          result passes the high-quality selection threshold.
+        </p>
+      </div>
+      <a
+        href={`${prefix}data/vlm_pairwise_scores.jsonl`}
+        class="inline-flex shrink-0 items-center justify-center rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        download
+      >
+        Download JSONL results
+      </a>
+    </div>
+
+    <div class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {
+        metrics.map((metric) => (
+          <div class="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              {metric.label}
+            </div>
+            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              {metric.value}
+            </div>
+            <div class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+              {metric.detail}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    <figure class="mx-auto my-0 max-w-5xl overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <img
+        src={`${prefix}image/vlm/vlm_pairwise_scores_overview.png`}
+        alt="VLM-based pairwise quality audit comparing naive Copy-Paste and CD-MIA."
+        loading="lazy"
+        decoding="async"
+        class="w-full"
+      />
+      <figcaption class="border-t border-zinc-200 px-4 py-3 text-xs leading-5 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        GPT-5.4-mini judges 50 paired samples. CD-MIA obtains a higher mean
+        quality score, wins most pairwise comparisons, and yields more
+        high-quality selected augmentations.
+      </figcaption>
+    </figure>
+  </div>
+</section>
