@@ -133,9 +133,9 @@ const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
             <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
               Method Comparisons
             </h3>
-            <div class="grid gap-5 xl:grid-cols-2">
+            <div class="grid gap-6">
               {comparisonVideos.map((video) => (
-                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <article class="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                   <div class="mb-3 flex items-center justify-between gap-3">
                     <h4 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
                       {video.label}
@@ -144,7 +144,7 @@ const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
                       DVIS++ vs. ORL-VIS
                     </span>
                   </div>
-                  <div class="grid gap-4 lg:grid-cols-2">
+                  <div class="grid gap-5 lg:grid-cols-2">
                     <div>
                       <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         DVIS++
