@@ -11,6 +11,12 @@ type VideoResult = {
   dvisWebm?: string;
 };
 
+type SingleVideo = {
+  id: string;
+  label: string;
+  mp4: string;
+};
+
 const baseUrl = import.meta.env.BASE_URL;
 const prefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
 const publicRoot = join(process.cwd(), "public", "qualitative-results");
@@ -99,6 +105,39 @@ const comparisonVideos = videoResults.filter(
   (video) => video.dvisMp4 && !caseStudyIds.has(video.id),
 );
 const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
+
+const showcaseVideos: SingleVideo[] = [
+  ["c3rbnc52", "Example 1"],
+  ["c0821cba97", "Example 2"],
+  ["fc9c7bb974-111dvis", "Example 3"],
+  ["1a4b95d3", "Example 4"],
+  ["567bfc5a", "Example 5"],
+  ["1123fd76", "Example 6"],
+  ["1220b722", "Example 7"],
+  ["6976cf19", "Example 8"],
+  ["09175449", "Example 9"],
+  ["23e7171e", "Example 10"],
+  ["7pq6jnvw", "Example 11"],
+].map(([id, label], index) => ({
+  id,
+  label,
+  mp4: publicUrl(
+    `qualitative-results/showcase/${String(index + 1).padStart(2, "0")}-${id}-h264.mp4`,
+  ),
+}));
+
+const challengeCaseVideos: SingleVideo[] = [
+  {
+    id: "4e919c55",
+    label: "Case Analysis 1",
+    mp4: publicUrl("qualitative-results/case-study/01-4e919c55-h264.mp4"),
+  },
+  {
+    id: "fe0a7e6b",
+    label: "Case Analysis 2",
+    mp4: publicUrl("qualitative-results/case-study/02-fe0a7e6b-h264.mp4"),
+  },
+];
 ---
 
 {
@@ -124,7 +163,7 @@ const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
             </p>
           </div>
           <div class="shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            {comparisonVideos.length} comparison / {oursOnlyVideos.length} ours-only / {caseStudyVideos.length} case study
+            {comparisonVideos.length} comparison / {oursOnlyVideos.length + showcaseVideos.length} ours-only / {caseStudyVideos.length + challengeCaseVideos.length} case studies
           </div>
         </div>
 
@@ -216,6 +255,76 @@ const oursOnlyVideos = videoResults.filter((video) => !video.dvisMp4);
                       <source src={video.oursWebm} type="video/webm" />
                     )}
                     <source src={video.oursMp4} type="video/mp4" />
+                  </video>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showcaseVideos.length > 0 && (
+          <div class="mb-8">
+            <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              Additional Qualitative Examples
+            </h3>
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {showcaseVideos.map((video) => (
+                <article class="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <h4 class="m-0 text-sm font-semibold text-blue-700 dark:text-blue-300">
+                      {video.label}
+                    </h4>
+                    <span class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      ORL-VIS result
+                    </span>
+                  </div>
+                  <video
+                    class="aspect-video w-full rounded bg-black object-contain"
+                    controls
+                    loop
+                    muted
+                    playsinline
+                    preload="metadata"
+                  >
+                    <source src={video.mp4} type="video/mp4" />
+                  </video>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {challengeCaseVideos.length > 0 && (
+          <div class="mb-8">
+            <h3 class="mb-3 mt-0 text-lg font-bold text-zinc-900 dark:text-zinc-50">
+              Case Analysis: Challenging Detection Scenarios
+            </h3>
+            <p class="mb-4 max-w-5xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+              These cases contain frequent occlusion, objects with colors close
+              to the background, fast motion, and repeated disappearance and
+              reappearance. They remain challenging for robust detection and
+              identity association in long-video instance segmentation.
+            </p>
+            <div class="grid gap-5 lg:grid-cols-2">
+              {challengeCaseVideos.map((video) => (
+                <article class="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <h4 class="m-0 text-base font-semibold text-zinc-900 dark:text-zinc-50">
+                      {video.label}
+                    </h4>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                      difficult scenario
+                    </span>
+                  </div>
+                  <video
+                    class="aspect-video w-full rounded bg-black object-contain"
+                    controls
+                    loop
+                    muted
+                    playsinline
+                    preload="metadata"
+                  >
+                    <source src={video.mp4} type="video/mp4" />
                   </video>
                 </article>
               ))}
