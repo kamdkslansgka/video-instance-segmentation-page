@@ -1,12 +1,27 @@
 ---
+interface Props {
+  wide?: boolean;
+}
 
+const { wide = false } = Astro.props;
 ---
 
-<figure>
-  <div class="flex w-full justify-center **:my-0">
+<figure class:list={[wide && "not-prose full-bleed my-8"]}>
+  <div
+    class:list={[
+      "flex w-full justify-center **:my-0",
+      wide && "mx-auto max-w-[92rem] px-6",
+    ]}
+  >
     <slot name="figure" />
   </div>
-  <figcaption class="text-center">
+  <figcaption
+    class:list={[
+      "text-center",
+      wide &&
+        "mx-auto mt-3 max-w-5xl px-6 text-sm leading-6 text-zinc-600 dark:text-zinc-300",
+    ]}
+  >
     <slot name="caption" />
   </figcaption>
 </figure>
